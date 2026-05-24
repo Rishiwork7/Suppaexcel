@@ -21,7 +21,7 @@ import bcrypt
 # ---------------------------------------------------------------------------
 
 def _db_path() -> str:
-    if getattr(sys, "frozen", False):          # PyInstaller bundle
+    if getattr(sys, "frozen", False) or '__compiled__' in globals():          # PyInstaller or Nuitka bundle
         base = os.path.dirname(sys.executable)
     else:
         base = os.path.dirname(os.path.abspath(__file__))

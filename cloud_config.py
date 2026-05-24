@@ -18,7 +18,7 @@ def _get_encryption_key():
     return base64.urlsafe_b64encode(key_bytes)
 
 def _get_config_path():
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, 'frozen', False) or '__compiled__' in globals():
         base = os.path.dirname(sys.executable)
     else:
         base = os.path.dirname(os.path.abspath(__file__))

@@ -28,7 +28,7 @@ SESSION_TIMEOUT_HOURS: float = 8.0
 # ---------------------------------------------------------------------------
 
 def _base_dir() -> str:
-    if getattr(sys, "frozen", False):
+    if getattr(sys, "frozen", False) or '__compiled__' in globals():
         return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.abspath(__file__))
 
