@@ -33,7 +33,7 @@ A production-ready PyQt6 application for handling, visualizing, and processing m
 2. Create a virtual environment (recommended):
    ```bash
    python3 -m venv venv
-   source venv/bin/activate  # On macOS/Linux
+    source venv/bin/activate # On macOS/Linux
    venv\Scripts\activate     # On Windows
    ```
 

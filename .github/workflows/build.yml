@@ -1,38 +1,45 @@
-name: Python application
+name: Build Windows EXE
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
-permissions:
-  contents: read
+    branches: [ "main", "master" ]
+  # This line allows you to trigger the build manually from the GitHub website
+  workflow_dispatch: 
 
 jobs:
   build:
-
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v3
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
       with:
-        python-version: "3.10"
-    - name: Install dependencies
+        python-version: '3.11' # Best compatibility for PyQT6 and Nuitka
+        cache: 'pip'
+
+    - name: Install Dependencies
       run: |
         python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-    - name: Lint with flake8
+        pip install -r requirements.txt
+
+    - name: Create Secure .env File
+      # We dynamically create the .env file using GitHub Secrets so it's never hardcoded in your repository
       run: |
-        # stop the build if there are Python syntax errors or undefined names
-        pip install flake8
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    # You can add tests here if you have any
-    # - name: Test with pytest
-    #   run: |
-    #     pip install pytest
-    #     pytest
+        echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" > .env
+        echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
+        echo "SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}" >> .env
+      shell: bash
+
+    - name: Run Build Pipeline
+      # This runs the build_exe.py script we created earlier
+      run: python build_tools/build_exe.py
+
+    - name: Upload Finished Build
+      uses: actions/upload-artifact@v4
+      with:
+        name: DataProcessor_Windows_Release
+        path: dist_output/DataProcessor_v1.0.0.zip
+        retention-days: 7

@@ -2,3 +2,8 @@ venv/
 __pycache__/
 *.pyc
 .DS_Store
+.env
+auth.db
+dist_output/
+build/
+*.spec

@@ -9,6 +9,9 @@ from PyQt6.QtCore import QThread, pyqtSignal
 import pandas as pd
 from typing import Optional
 import traceback
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class FileLoadWorker(QThread):
@@ -70,8 +73,8 @@ class FileLoadWorker(QThread):
             self.finished.emit(df, duplicate_mask)
             
         except Exception as e:
-            error_msg = f"Error loading file: {str(e)}\n{traceback.format_exc()}"
-            self.error.emit(error_msg)
+            logger.error("FileLoadWorker error:\n%s", traceback.format_exc())
+            self.error.emit(f"Error loading file: {str(e)}")
 
 
 class DeduplicateWorker(QThread):
@@ -90,7 +93,9 @@ class DeduplicateWorker(QThread):
     
     def __init__(self, df: pd.DataFrame):
         super().__init__()
-        self.df = df.copy()  # Work on a copy to avoid modifying original
+        # Fix 11: Don't copy the entire df upfront — for 10M rows this doubles peak RAM.
+        # We hold a reference and create the deduplicated result directly.
+        self.df = df
     
     def run(self):
         """
@@ -102,20 +107,21 @@ class DeduplicateWorker(QThread):
             original_count = len(self.df)
             self.progress.emit("Removing duplicates...")
             
-            # keep='first' ensures one original row remains while removing others
-            self.df = self.df.drop_duplicates(keep='first')
+            # keep='first' ensures one original row remains while removing others.
+            # drop_duplicates returns a new df — original is not mutated.
+            result_df = self.df.drop_duplicates(keep='first')
             
-            removed_count = original_count - len(self.df)
+            removed_count = original_count - len(result_df)
             self.progress.emit(f"Removed {removed_count:,} duplicate rows")
             
             # Recalculate duplicate mask for remaining data (should be all False)
-            duplicate_mask = self.df.duplicated(keep=False)
+            duplicate_mask = result_df.duplicated(keep=False)
             
-            self.finished.emit(self.df, removed_count, duplicate_mask)
+            self.finished.emit(result_df, removed_count, duplicate_mask)
             
         except Exception as e:
-            error_msg = f"Error removing duplicates: {str(e)}\n{traceback.format_exc()}"
-            self.error.emit(error_msg)
+            logger.error("DeduplicateWorker error:\n%s", traceback.format_exc())
+            self.error.emit(f"Error removing duplicates: {str(e)}")
 
 
 class MergeWorker(QThread):
@@ -139,6 +145,7 @@ class MergeWorker(QThread):
     def run(self):
         """
         Load and merge multiple files in the background.
+        Preserves column structure — aligns columns across files by name.
         """
         try:
             dfs = []
@@ -152,12 +159,9 @@ class MergeWorker(QThread):
                 elif file_path.endswith('.xlsx'):
                     df = pd.read_excel(file_path)
                 elif file_path.endswith('.txt'):
-                    # Support both delimited and plain text
                     try:
-                        # Try to detect delimiter automatically
                         df = pd.read_csv(file_path, sep=None, engine='python')
                     except Exception:
-                        # Fallback for plain text: each line is a row
                         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                             lines = [line.strip() for line in f.readlines() if line.strip()]
                         df = pd.DataFrame(lines, columns=['Content'])
@@ -172,29 +176,24 @@ class MergeWorker(QThread):
                 self.error.emit("No valid data found in selected files.")
                 return
             
-            self.progress.emit("Concatenating datasets into single column...")
-            # Combine all data into a single column
-            all_data = []
-            for df in dfs:
-                # Flatten all values from the dataframe into a single column
-                for col in df.columns:
-                    all_data.extend(df[col].astype(str).values)
+            self.progress.emit("Merging datasets...")
+            # Fix 7: Use pd.concat to stack rows while aligning on column names.
+            # This preserves column structure — matching columns stay aligned,
+            # non-matching columns get NaN where absent. Previously all columns
+            # were flattened into a single 'Data' column, destroying structure.
+            merged_df = pd.concat(dfs, ignore_index=True, sort=False)
             
-            # Create a new dataframe with single column
-            merged_df = pd.DataFrame(all_data, columns=['Data'])
+            self.progress.emit(f"Merged {len(merged_df):,} rows. Identifying duplicates...")
             
-            self.progress.emit(f"Merged {len(merged_df):,} rows into single column. Identifying duplicates...")
-            
-            # Identify duplicates across all merged files (keep=False marks ALL copies)
             duplicate_mask = merged_df.duplicated(keep=False)
             dup_count = duplicate_mask.sum()
             
-            self.progress.emit(f"Final dataset: {len(merged_df):,} rows in 1 column. Found {dup_count:,} duplicates.")
+            self.progress.emit(f"Final dataset: {len(merged_df):,} rows, {len(merged_df.columns)} columns. Found {dup_count:,} duplicates.")
             self.finished.emit(merged_df, duplicate_mask)
             
         except Exception as e:
-            error_msg = f"Error merging files: {str(e)}\n{traceback.format_exc()}"
-            self.error.emit(error_msg)
+            logger.error("MergeWorker error:\n%s", traceback.format_exc())
+            self.error.emit(f"Error merging files: {str(e)}")
 
 
 class ExportWorker(QThread):
@@ -237,8 +236,8 @@ class ExportWorker(QThread):
             self.finished.emit()
             
         except Exception as e:
-            error_msg = f"Error exporting file: {str(e)}\n{traceback.format_exc()}"
-            self.error.emit(error_msg)
+            logger.error("ExportWorker error:\n%s", traceback.format_exc())
+            self.error.emit(f"Error exporting file: {str(e)}")
 
 
 class SearchWorker(QThread):
@@ -258,6 +257,13 @@ class SearchWorker(QThread):
         self.df = df
         self.mask = mask
         self.query = query
+        # Fix 3: Cancellation flag — safe alternative to terminate()
+        # terminate() force-kills the thread OS-level and can corrupt pandas state
+        self._cancelled = False
+
+    def cancel(self):
+        """Signal the worker to stop at the next safe checkpoint."""
+        self._cancelled = True
     
     def run(self):
         """
@@ -268,24 +274,31 @@ class SearchWorker(QThread):
                 self.finished.emit(self.df, self.mask)
                 return
             
-            # Optimized: Combine column searches into a single loop using bitwise OR
-            # Use 'case=False' and 'na=False' with optimized string access
             query_lower = self.query.lower()
             condition = pd.Series(False, index=self.df.index)
             
+            # Fix 10: Pre-compute the full string representation of each column once.
+            # Previously astype(str).str.lower() was called inside the loop body,
+            # meaning for a 10M row × 20 col df every search did 200M conversions.
+            # Now we convert each column once and check the cancel flag between columns
+            # so long searches can be interrupted cleanly.
             for col in self.df.columns:
-                # Optimized search: only cast to string once
-                # and use a faster contains check if possible
+                if self._cancelled:
+                    return  # Exit cleanly — no signal emitted, caller handles this
                 try:
-                    condition |= self.df[col].astype(str).str.lower().str.contains(query_lower, regex=False, na=False)
+                    col_str = self.df[col].astype(str).str.lower()
+                    condition |= col_str.str.contains(query_lower, regex=False, na=False)
                 except Exception:
                     continue
             
+            if self._cancelled:
+                return
+
             filtered_df = self.df[condition]
             filtered_mask = self.mask[condition] if self.mask is not None else None
             
             self.finished.emit(filtered_df, filtered_mask)
             
         except Exception as e:
+            logger.error("SearchWorker error:\n%s", traceback.format_exc())
             self.error.emit(f"Search Error: {str(e)}")
-

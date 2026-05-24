@@ -195,11 +195,13 @@ class VirtualDataModel(QAbstractTableModel):
             # Update current view directly (if it's a copy)
             self.df.iloc[row, col] = value
             
-            # Clear cache for the master row index
-            if actual_row_idx in self._cache:
-                del self._cache[actual_row_idx]
-                if actual_row_idx in self._cache_index:
-                    self._cache_index.remove(actual_row_idx)
+            # Fix 4: Cache is keyed by positional int `row`, NOT by `actual_row_idx`
+            # (the pandas label). Using actual_row_idx here caused stale cache reads
+            # after filtering when iloc position != pandas index label.
+            if row in self._cache:
+                del self._cache[row]
+                if row in self._cache_index:
+                    self._cache_index.remove(row)
             
             index = self.index(row, col)
             self.dataChanged.emit(index, index)
