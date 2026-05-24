@@ -35,6 +35,8 @@ jobs:
 
     - name: Run Build Pipeline
       # This runs the build_exe.py script we created earlier
+      env:
+        PYTHONIOENCODING: "utf8"
       run: python build_tools/build_exe.py
 
     - name: Upload Finished Build
