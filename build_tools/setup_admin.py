@@ -29,11 +29,11 @@ def setup_admin():
         bcrypt.gensalt(rounds=12)
     ).decode("utf-8")
     
-    client.table("users").upsert({
+    client.table("user_profiles").upsert({
         "user_id": "admin",
         "hashed_password": hashed,
         "role": "admin",
-        "is_first_login": 0
+        "is_first_login": 1
     }).execute()
     
     print("✅ Admin user set in Supabase")
