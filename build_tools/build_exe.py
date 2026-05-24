@@ -70,7 +70,8 @@ def build_exe():
     cmd = [
         sys.executable, "-m", "nuitka",
         "--onefile",
-        "--windows-disable-console",
+        "--windows-console-mode=disable",
+        "--assume-yes-for-downloads",
         f"--output-filename={APP_NAME}.exe",
         f"--output-dir={OUTPUT_DIR}",
         "--enable-plugin=pyqt6",
