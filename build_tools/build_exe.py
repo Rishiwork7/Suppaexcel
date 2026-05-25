@@ -72,7 +72,8 @@ def build_exe():
     # Include hidden imports for PyInstaller
     hidden_imports = [
         "pandas", "pyarrow", "bcrypt", "cryptography", "supabase", "keyring", "dotenv",
-        "gotrue", "postgrest", "realtime", "storage3", "httpx", "pydantic"
+        "postgrest", "realtime", "storage3", "httpx", "pydantic",
+        "gotrue", "supabase_auth", "supabase_functions", "yarl"
     ]
     for pkg in hidden_imports:
         cmd.append(f"--hidden-import={pkg}")
