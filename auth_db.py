@@ -63,7 +63,8 @@ def verify_user(user_id: str, password: str) -> dict | None:
             "user_id": user_id, 
             "role": role, 
             "is_first_login": is_first_login,
-            "session_token": auth_res.session.access_token if auth_res.session else None
+            "session_token": auth_res.session.access_token if auth_res.session else None,
+            "auth_uid": auth_res.user.id
         }
     except Exception as e:
         import traceback
