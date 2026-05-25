@@ -124,15 +124,22 @@ def _delete_token() -> None:
 # Public API
 # ---------------------------------------------------------------------------
 
-def save_session(user_id: str, role: str, auth_uid: str = None) -> None:
+def save_session(user_id: str, role: str, auth_uid: str = None, session_token: str = None, refresh_token: str = None) -> None:
     """Persist a new session for *user_id* with *role*."""
-    payload = {"user_id": user_id, "role": role, "timestamp": time.time(), "auth_uid": auth_uid}
+    payload = {
+        "user_id": user_id, 
+        "role": role, 
+        "timestamp": time.time(), 
+        "auth_uid": auth_uid,
+        "session_token": session_token,
+        "refresh_token": refresh_token
+    }
     _write_token(json.dumps(payload))
 
 
 def load_session() -> Optional[dict]:
     """
-    Return ``{user_id, role, timestamp}`` if a valid, non-expired session
+    Return ``{user_id, role, timestamp, auth_uid, session_token, refresh_token}`` if a valid, non-expired session
     exists, else return None.
     """
     token = _read_token()
@@ -145,7 +152,7 @@ def load_session() -> Optional[dict]:
         return None
 
     # Validate required fields
-    if not all(k in payload for k in ("user_id", "role", "timestamp", "auth_uid")):
+    if not all(k in payload for k in ("user_id", "role", "timestamp")):
         _delete_token()
         return None
 

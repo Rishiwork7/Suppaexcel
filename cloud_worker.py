@@ -41,7 +41,9 @@ class CloudUploadWorker(QThread):
 
     def run(self):
         try:
-            user_id = builtins.CURRENT_USER["auth_uid"]
+            user_id = builtins.CURRENT_USER.get("auth_uid")
+            if not user_id:
+                raise ValueError("Session is invalid. Please log out and log in again.")
             safe_file_name = re.sub(r'[^a-zA-Z0-9_\-\.]', '', self.file_name.split('/')[-1].split('\\')[-1])
             if not safe_file_name:
                 safe_file_name = "untitled.csv"
@@ -75,6 +77,9 @@ class CloudUploadWorker(QThread):
                 
             storage_path = f"{user_id}/{file_id}/{safe_file_name}.zip"
             client = get_supabase_client()
+            session_token = builtins.CURRENT_USER.get("session_token")
+            if session_token:
+                client.auth.set_session(session_token, builtins.CURRENT_USER.get("refresh_token") or "dummy")
             
             self.progress.emit("Uploading to cloud...")
             res = client.storage.from_("user-files").upload(
@@ -113,7 +118,12 @@ class CloudDownloadWorker(QThread):
     def run(self):
         try:
             client = get_supabase_client()
-            user_id = builtins.CURRENT_USER["auth_uid"]
+            session_token = builtins.CURRENT_USER.get("session_token")
+            if session_token:
+                client.auth.set_session(session_token, builtins.CURRENT_USER.get("refresh_token") or "dummy")
+            user_id = builtins.CURRENT_USER.get("auth_uid")
+            if not user_id:
+                raise ValueError("Session is invalid. Please log out and log in again.")
             
             self.progress.emit("Downloading from cloud...")
             res = client.storage.from_("user-files").download(self.storage_path)
@@ -184,7 +194,12 @@ class CloudAutoSaveWorker(QThread):
             zip_bytes = zip_buffer.getvalue()
             
             client = get_supabase_client()
-            user_id = builtins.CURRENT_USER["auth_uid"]
+            session_token = builtins.CURRENT_USER.get("session_token")
+            if session_token:
+                client.auth.set_session(session_token, builtins.CURRENT_USER.get("refresh_token") or "dummy")
+            user_id = builtins.CURRENT_USER.get("auth_uid")
+            if not user_id:
+                raise ValueError("Session is invalid. Please log out and log in again.")
             
             client.storage.from_("user-files").upload(
                 self.storage_path, zip_bytes, {"content-type": "application/zip", "upsert": "true"}
@@ -211,7 +226,12 @@ class CloudListFilesWorker(QThread):
     def run(self):
         try:
             client = get_supabase_client()
-            user_id = builtins.CURRENT_USER["auth_uid"]
+            session_token = builtins.CURRENT_USER.get("session_token")
+            if session_token:
+                client.auth.set_session(session_token, builtins.CURRENT_USER.get("refresh_token") or "dummy")
+            user_id = builtins.CURRENT_USER.get("auth_uid")
+            if not user_id:
+                raise ValueError("Session is invalid. Please log out and log in again.")
             
             res = client.table("user_files").select("*").eq("user_id", user_id).order("updated_at", desc=True).execute()
             self.finished.emit(res.data)
@@ -230,7 +250,12 @@ class CloudDeleteFileWorker(QThread):
     def run(self):
         try:
             client = get_supabase_client()
-            user_id = builtins.CURRENT_USER["auth_uid"]
+            session_token = builtins.CURRENT_USER.get("session_token")
+            if session_token:
+                client.auth.set_session(session_token, builtins.CURRENT_USER.get("refresh_token") or "dummy")
+            user_id = builtins.CURRENT_USER.get("auth_uid")
+            if not user_id:
+                raise ValueError("Session is invalid. Please log out and log in again.")
             
             client.storage.from_("user-files").remove([self.storage_path])
             client.table("user_files").delete().eq("id", self.file_id).eq("user_id", user_id).execute()

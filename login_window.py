@@ -205,7 +205,13 @@ class LoginWindow(QDialog):
             self._do_first_login_reset(result)
             return
 
-        sess.save_session(result["user_id"], result["role"], result.get("auth_uid"))
+        sess.save_session(
+            result["user_id"], 
+            result["role"], 
+            result.get("auth_uid"),
+            result.get("session_token"),
+            result.get("refresh_token")
+        )
         self.logged_in_user = result
         self.accept()
 
@@ -220,7 +226,13 @@ class LoginWindow(QDialog):
         reset_win.exec()
 
         if reset_win.success:
-            sess.save_session(result["user_id"], result["role"], result.get("auth_uid"))
+            sess.save_session(
+                result["user_id"], 
+                result["role"], 
+                result.get("auth_uid"),
+                result.get("session_token"),
+                result.get("refresh_token")
+            )
             self.logged_in_user = result
             self.accept()
         else:

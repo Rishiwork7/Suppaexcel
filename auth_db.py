@@ -64,6 +64,7 @@ def verify_user(user_id: str, password: str) -> dict | None:
             "role": role, 
             "is_first_login": is_first_login,
             "session_token": auth_res.session.access_token if auth_res.session else None,
+            "refresh_token": auth_res.session.refresh_token if auth_res.session else None,
             "auth_uid": auth_res.user.id
         }
     except Exception as e:
