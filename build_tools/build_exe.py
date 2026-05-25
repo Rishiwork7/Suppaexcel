@@ -58,6 +58,7 @@ def build_exe():
     
     cmd = [
         sys.executable, "-m", "nuitka",
+        "--assume-yes-for-downloads",
         "--standalone",
         "--onefile",
         "--enable-plugin=pyqt6",
