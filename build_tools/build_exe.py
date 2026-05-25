@@ -61,7 +61,7 @@ def build_exe():
         "--standalone",
         "--onefile",
         "--enable-plugin=pyqt6",
-        "--disable-console",
+        "--windows-console-mode=disable",
         f"--output-dir={OUTPUT_DIR}",
     ]
     
@@ -75,7 +75,7 @@ def build_exe():
     hidden_imports = [
         "pandas", "pyarrow", "bcrypt", "cryptography", "supabase", "keyring", "dotenv",
         "postgrest", "realtime", "storage3", "httpx", "pydantic",
-        "gotrue", "supabase_auth", "supabase_functions", "yarl"
+        "supabase_auth", "supabase_functions", "yarl"
     ]
     for pkg in hidden_imports:
         cmd.append(f"--include-package={pkg}")
