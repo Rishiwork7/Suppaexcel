@@ -54,64 +54,74 @@ def verify_env():
 # Removed encrypt_config as it's no longer needed
 
 def build_exe():
-    print("🔨 Starting PyInstaller compilation (this takes 2-5 min)...")
+    print("🔨 Starting Nuitka compilation (this takes a while)...")
     
     cmd = [
-        sys.executable, "-m", "PyInstaller",
-        "--noconfirm",
+        sys.executable, "-m", "nuitka",
+        "--standalone",
         "--onefile",
-        "--windowed",
-        f"--name={APP_NAME}",
-        f"--distpath={OUTPUT_DIR}",
-        "--clean",
+        "--enable-plugin=pyqt6",
+        "--disable-console",
+        f"--output-dir={OUTPUT_DIR}",
     ]
     
     if os.path.exists(ICON_FILE):
-        cmd.append(f"--icon={ICON_FILE}")
+        if sys.platform == "win32":
+            cmd.append(f"--windows-icon-from-ico={ICON_FILE}")
+        elif sys.platform == "darwin":
+            cmd.append(f"--macos-app-icon={ICON_FILE}")
     
-    # Include hidden imports for PyInstaller
+    # Include packages for Nuitka
     hidden_imports = [
         "pandas", "pyarrow", "bcrypt", "cryptography", "supabase", "keyring", "dotenv",
         "postgrest", "realtime", "storage3", "httpx", "pydantic",
         "gotrue", "supabase_auth", "supabase_functions", "yarl"
     ]
     for pkg in hidden_imports:
-        cmd.append(f"--hidden-import={pkg}")
+        cmd.append(f"--include-package={pkg}")
     
     cmd.append(MAIN_FILE)
     
     result = subprocess.run(cmd)
     
     if result.returncode != 0:
-        print("❌ PyInstaller build failed. Check errors above.")
+        print("❌ Nuitka build failed. Check errors above.")
         sys.exit(1)
     
-    print("✅ EXE compiled successfully.")
+    print("✅ Executable compiled successfully.")
 
 def package():
     print("📦 Creating distribution package...")
     
     os.makedirs(DIST_FOLDER, exist_ok=True)
     
-    # Copy EXE
+    # Find the output executable (Nuitka names it depending on OS)
     exe_src = os.path.join(OUTPUT_DIR, f"{APP_NAME}.exe")
     if not os.path.exists(exe_src):
-        print("❌ EXE not found in dist_output/")
-        sys.exit(1)
-    shutil.copy(exe_src, DIST_FOLDER)
-    
-    # Removed config.dat copying
+        # Fallback for Mac/Linux Nuitka outputs
+        alt_src_bin = os.path.join(OUTPUT_DIR, "main.bin")
+        alt_src_out = os.path.join(OUTPUT_DIR, "main")
+        if os.path.exists(alt_src_bin):
+            exe_src = alt_src_bin
+        elif os.path.exists(alt_src_out):
+            exe_src = alt_src_out
+        else:
+            print("❌ Executable not found in dist_output/")
+            sys.exit(1)
+            
+    # Copy to dist folder and rename it properly
+    final_exe_name = f"{APP_NAME}.exe" if sys.platform == "win32" else APP_NAME
+    shutil.copy(exe_src, os.path.join(DIST_FOLDER, final_exe_name))
     
     # Write README for client
     readme = f"""{APP_NAME} v{VERSION} — Setup Instructions
 {'='*45}
 
 REQUIREMENTS:
-- Windows 10 or higher (64-bit)
 - Internet connection (required for login and cloud sync)
 
 SETUP:
-1. Double-click {APP_NAME}.exe to launch
+1. Double-click the {final_exe_name} executable to launch
 2. Enter your User ID and Password provided by administrator
 3. On first login you will be forced to set a new password
 
@@ -135,7 +145,7 @@ Version: {VERSION}
     print(f"📁 Folder:  {DIST_FOLDER}/")
     print(f"📦 ZIP:     {zip_path}.zip")
     print(f"\nContents:")
-    print(f"   ├── {APP_NAME}.exe    ← send this to client")
+    print(f"   ├── {final_exe_name}    ← send this to client")
     print(f"   └── README.txt        ← send this to client")
     print(f"\n⚠️  NEVER send these to client:")
     print(f"   ✗ .env")
