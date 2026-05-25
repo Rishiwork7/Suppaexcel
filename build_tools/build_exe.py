@@ -70,7 +70,11 @@ def build_exe():
         cmd.append(f"--icon={ICON_FILE}")
     
     # Include hidden imports for PyInstaller
-    for pkg in ["pandas", "pyarrow", "bcrypt", "cryptography", "supabase", "keyring", "dotenv"]:
+    hidden_imports = [
+        "pandas", "pyarrow", "bcrypt", "cryptography", "supabase", "keyring", "dotenv",
+        "gotrue", "postgrest", "realtime", "storage3", "httpx", "pydantic"
+    ]
+    for pkg in hidden_imports:
         cmd.append(f"--hidden-import={pkg}")
     
     cmd.append(MAIN_FILE)

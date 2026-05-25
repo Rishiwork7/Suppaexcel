@@ -66,6 +66,12 @@ def verify_user(user_id: str, password: str) -> dict | None:
             "session_token": auth_res.session.access_token if auth_res.session else None
         }
     except Exception as e:
+        import traceback
+        try:
+            with open("login_error_debug.txt", "w") as f:
+                f.write(traceback.format_exc())
+        except:
+            pass
         print(f"Verify user failed: {e}")
         return None
 
