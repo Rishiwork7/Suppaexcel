@@ -99,13 +99,16 @@ def package():
     # Find the output executable (Nuitka names it depending on OS)
     exe_src = os.path.join(OUTPUT_DIR, f"{APP_NAME}.exe")
     if not os.path.exists(exe_src):
-        # Fallback for Mac/Linux Nuitka outputs
+        # Fallback for Mac/Linux Nuitka outputs and Windows main.exe
         alt_src_bin = os.path.join(OUTPUT_DIR, "main.bin")
         alt_src_out = os.path.join(OUTPUT_DIR, "main")
+        alt_src_exe = os.path.join(OUTPUT_DIR, "main.exe")
         if os.path.exists(alt_src_bin):
             exe_src = alt_src_bin
         elif os.path.exists(alt_src_out):
             exe_src = alt_src_out
+        elif os.path.exists(alt_src_exe):
+            exe_src = alt_src_exe
         else:
             print("❌ Executable not found in dist_output/")
             sys.exit(1)
