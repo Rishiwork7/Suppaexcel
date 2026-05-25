@@ -11,7 +11,6 @@ import os
 # Set environment variables previously in .env
 os.environ["SUPABASE_URL"] = "https://euloqmxisohlkioesztb.supabase.co"
 os.environ["SUPABASE_ANON_KEY"] = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1bG9xbXhpc29obGtpb2VzenRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMjM3NjYsImV4cCI6MjA5NDg5OTc2Nn0.9LHuNcLkf_W7M-0hamyumanMwF6Bf3ofVh6EiE8THHo"
-os.environ["SUPABASE_SERVICE_KEY"] = "sb_secret_UpgkfiK3AEaeCQFM8sNIYA_au1EEcke"
 
 from PyQt6.QtWidgets import QApplication, QInputDialog, QMessageBox
 from PyQt6.QtCore import Qt, QTimer

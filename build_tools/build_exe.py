@@ -1,8 +1,8 @@
 """
-Complete secured build script using Nuitka.
+Complete secured build script using PyInstaller.
 Usage: python build_tools/build_exe.py
-Requirements: pip install nuitka ordered-set zstandard
-Approximate build time: 10-15 minutes first run.
+Requirements: pip install pyinstaller
+Approximate build time: 2-5 minutes.
 """
 
 import os
@@ -51,61 +51,34 @@ def verify_env():
         sys.exit(1)
     print("   .env OK")
 
-def encrypt_config():
-    print("🔐 Generating encrypted config.dat...")
-    result = subprocess.run(
-        [sys.executable, "build_tools/encrypt_config.py"],
-        capture_output=True, text=True
-    )
-    if result.returncode != 0:
-        print("❌ encrypt_config.py failed:")
-        print(result.stdout)
-        print(result.stderr)
-        sys.exit(1)
-    print("   config.dat generated.")
+# Removed encrypt_config as it's no longer needed
 
 def build_exe():
-    print("🔨 Starting Nuitka compilation (this takes 10-15 min)...")
+    print("🔨 Starting PyInstaller compilation (this takes 2-5 min)...")
     
     cmd = [
-        sys.executable, "-m", "nuitka",
+        sys.executable, "-m", "PyInstaller",
+        "--noconfirm",
         "--onefile",
-        "--windows-console-mode=disable",
-        "--assume-yes-for-downloads",
-        f"--output-filename={APP_NAME}.exe",
-        f"--output-dir={OUTPUT_DIR}",
-        "--enable-plugin=pyqt6",
-        "--python-flag=no_docstrings",
-        "--python-flag=no_asserts",
-        "--remove-output",
+        "--windowed",
+        f"--name={APP_NAME}",
+        f"--distpath={OUTPUT_DIR}",
+        "--clean",
     ]
     
-    # Include all modules
-    for mod in ALL_MODULES:
-        cmd.append(f"--include-module={mod}")
-    
-    # Include icon if exists
     if os.path.exists(ICON_FILE):
-        cmd.append(f"--include-data-files={ICON_FILE}={ICON_FILE}")
-        cmd.append(f"--windows-icon-from-ico={ICON_FILE}")
+        cmd.append(f"--icon={ICON_FILE}")
     
-    # Include pandas, pyarrow data files
-    cmd += [
-        "--include-package=pandas",
-        "--include-package=pyarrow",
-        "--include-package=bcrypt",
-        "--include-package=cryptography",
-        "--include-package=supabase",
-        "--include-package=keyring",
-        "--include-package=dotenv",
-    ]
+    # Include hidden imports for PyInstaller
+    for pkg in ["pandas", "pyarrow", "bcrypt", "cryptography", "supabase", "keyring", "dotenv"]:
+        cmd.append(f"--hidden-import={pkg}")
     
     cmd.append(MAIN_FILE)
     
     result = subprocess.run(cmd)
     
     if result.returncode != 0:
-        print("❌ Nuitka build failed. Check errors above.")
+        print("❌ PyInstaller build failed. Check errors above.")
         sys.exit(1)
     
     print("✅ EXE compiled successfully.")
@@ -122,12 +95,7 @@ def package():
         sys.exit(1)
     shutil.copy(exe_src, DIST_FOLDER)
     
-    # Copy config.dat
-    config_src = os.path.join(OUTPUT_DIR, "config.dat")
-    if not os.path.exists(config_src):
-        print("❌ config.dat not found.")
-        sys.exit(1)
-    shutil.copy(config_src, DIST_FOLDER)
+    # Removed config.dat copying
     
     # Write README for client
     readme = f"""{APP_NAME} v{VERSION} — Setup Instructions
@@ -138,14 +106,11 @@ REQUIREMENTS:
 - Internet connection (required for login and cloud sync)
 
 SETUP:
-1. Keep {APP_NAME}.exe and config.dat in the SAME folder
-   (Do NOT move config.dat elsewhere)
-2. Double-click {APP_NAME}.exe to launch
-3. Enter your User ID and Password provided by administrator
-4. On first login you will be forced to set a new password
+1. Double-click {APP_NAME}.exe to launch
+2. Enter your User ID and Password provided by administrator
+3. On first login you will be forced to set a new password
 
 RULES:
-- Do NOT delete config.dat — app will not start without it
 - Do NOT share your credentials with anyone
 - Your files are automatically saved to cloud every 30 seconds
 
@@ -166,7 +131,6 @@ Version: {VERSION}
     print(f"📦 ZIP:     {zip_path}.zip")
     print(f"\nContents:")
     print(f"   ├── {APP_NAME}.exe    ← send this to client")
-    print(f"   ├── config.dat        ← send this to client")
     print(f"   └── README.txt        ← send this to client")
     print(f"\n⚠️  NEVER send these to client:")
     print(f"   ✗ .env")
@@ -181,7 +145,6 @@ def main():
     print("="*50)
     clean()
     verify_env()
-    encrypt_config()
     build_exe()
     package()
 

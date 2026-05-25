@@ -74,7 +74,7 @@ class CloudUploadWorker(QThread):
                 return
                 
             storage_path = f"{user_id}/{file_id}/{safe_file_name}.zip"
-            client = get_supabase_client(use_service_key=True)
+            client = get_supabase_client()
             
             self.progress.emit("Uploading to cloud...")
             res = client.storage.from_("user-files").upload(
@@ -112,7 +112,7 @@ class CloudDownloadWorker(QThread):
 
     def run(self):
         try:
-            client = get_supabase_client(use_service_key=True)
+            client = get_supabase_client()
             user_id = builtins.CURRENT_USER["user_id"]
             
             self.progress.emit("Downloading from cloud...")
@@ -183,7 +183,7 @@ class CloudAutoSaveWorker(QThread):
                 
             zip_bytes = zip_buffer.getvalue()
             
-            client = get_supabase_client(use_service_key=True)
+            client = get_supabase_client()
             user_id = builtins.CURRENT_USER["user_id"]
             
             client.storage.from_("user-files").upload(
@@ -210,7 +210,7 @@ class CloudListFilesWorker(QThread):
 
     def run(self):
         try:
-            client = get_supabase_client(use_service_key=True)
+            client = get_supabase_client()
             user_id = builtins.CURRENT_USER["user_id"]
             
             res = client.table("user_files").select("*").eq("user_id", user_id).order("updated_at", desc=True).execute()
@@ -229,7 +229,7 @@ class CloudDeleteFileWorker(QThread):
 
     def run(self):
         try:
-            client = get_supabase_client(use_service_key=True)
+            client = get_supabase_client()
             user_id = builtins.CURRENT_USER["user_id"]
             
             client.storage.from_("user-files").remove([self.storage_path])

@@ -32,39 +32,39 @@ import os
 import bcrypt
 from cloud_config import get_supabase_client
 
-def _hash_password(plaintext: str) -> str:
-    return bcrypt.hashpw(plaintext.encode(), bcrypt.gensalt(rounds=12)).decode()
-
-def _check_password(plaintext: str, hashed: str) -> bool:
-    if not hashed.startswith("$2b$"):
-        # Allow plaintext matching for admin-created temporary passwords
-        return plaintext == hashed
-    try:
-        return bcrypt.checkpw(plaintext.encode(), hashed.encode())
-    except Exception:
-        return False
-
 def init_db() -> None:
-    # We no longer create local DBs.
-    # The users must be created directly in the Supabase `user_profiles` table.
     pass
 
 def verify_user(user_id: str, password: str) -> dict | None:
     try:
         client = get_supabase_client()
-        res = client.table("user_profiles").select("*").eq("user_id", user_id).execute()
-        if not res.data:
-            return None
-            
-        user_row = res.data[0]
-        hashed = user_row.get("hashed_password", "")
-        role = user_row.get("role", "user")
-        is_first_login = int(user_row.get("is_first_login", 0))
+        email = f"{user_id}@app.local"
         
-        if not _check_password(password, hashed):
+        # 1. Sign in using Supabase Native Auth
+        auth_res = client.auth.sign_in_with_password({
+            "email": email, 
+            "password": password
+        })
+        if not auth_res.user:
             return None
             
-        return {"user_id": user_id, "role": role, "is_first_login": is_first_login}
+        # 2. Fetch profile metadata (role, is_first_login) using the authenticated session
+        res = client.table("user_profiles").select("*").eq("user_id", user_id).execute()
+        
+        if res.data:
+            user_row = res.data[0]
+            role = user_row.get("role", "user")
+            is_first_login = int(user_row.get("is_first_login", 0))
+        else:
+            role = "user"
+            is_first_login = 0
+            
+        return {
+            "user_id": user_id, 
+            "role": role, 
+            "is_first_login": is_first_login,
+            "session_token": auth_res.session.access_token if auth_res.session else None
+        }
     except Exception as e:
         print(f"Verify user failed: {e}")
         return None
@@ -72,9 +72,12 @@ def verify_user(user_id: str, password: str) -> dict | None:
 def reset_password(user_id: str, new_password: str) -> None:
     try:
         client = get_supabase_client()
-        hashed = _hash_password(new_password)
+        
+        # Update password in Supabase Auth (requires active user session, which we have from verify_user)
+        client.auth.update_user({"password": new_password})
+        
+        # Update first login flag in profiles
         client.table("user_profiles").update({
-            "hashed_password": hashed,
             "is_first_login": 0
         }).eq("user_id", user_id).execute()
     except Exception as e:
