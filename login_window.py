@@ -202,25 +202,26 @@ class LoginWindow(QDialog):
 
         if result["is_first_login"] == 1:
             # Force password reset before granting access
-            self._do_first_login_reset(result["user_id"], result["role"])
+            self._do_first_login_reset(result)
             return
 
-        sess.save_session(result["user_id"], result["role"])
-        self.logged_in_user = {"user_id": result["user_id"], "role": result["role"]}
+        sess.save_session(result["user_id"], result["role"], result.get("auth_uid"))
+        self.logged_in_user = result
         self.accept()
 
     # ------------------------------------------------------------------
     # First-login flow
     # ------------------------------------------------------------------
 
-    def _do_first_login_reset(self, user_id: str, role: str) -> None:
+    def _do_first_login_reset(self, result: dict) -> None:
         """Hide self, show PasswordResetWindow, then either accept or re-show."""
         self.hide()
-        reset_win = PasswordResetWindow(user_id, role, parent=None)
+        reset_win = PasswordResetWindow(result["user_id"], result["role"], parent=None)
         reset_win.exec()
 
         if reset_win.success:
-            self.logged_in_user = {"user_id": user_id, "role": role}
+            sess.save_session(result["user_id"], result["role"], result.get("auth_uid"))
+            self.logged_in_user = result
             self.accept()
         else:
             # Reset was not completed — show login again

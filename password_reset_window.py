@@ -177,7 +177,8 @@ class PasswordResetWindow(QDialog):
 
         try:
             auth_db.reset_password(self._user_id, new_pw)
-            sess.save_session(self._user_id, self._role)
+            # Session saving is now handled by the login window after success
+            pass
             self.success = True
             self.accept()
         except RuntimeError as exc:
